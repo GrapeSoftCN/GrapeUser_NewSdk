@@ -14,12 +14,15 @@ import JGrapeSystem.rMsg;
 import Model.UserModel;
 import apps.appIns;
 import apps.appsProxy;
+import authority.plvDef.UserMode;
+import authority.plvDef.plvType;
 import cache.CacheHelper;
 import check.checkHelper;
 import checkCode.checkCodeHelper;
 import checkCode.imageCheckCode;
 import interfaceModel.GrapeDBSpecField;
 import interfaceModel.GrapeTreeDBModel;
+import json.JSONHelper;
 import security.codec;
 import session.session;
 import sms.ruoyaMASDB;
@@ -36,6 +39,7 @@ public class user {
     private String GrapeSid = null;
     private String userName = null;
     private String userId = null;
+    private Integer userType = null;
 
     public user() {
         model = new UserModel();
@@ -45,6 +49,7 @@ public class user {
         gDbSpecField.importDescription(appsProxy.tableConfig("user"));
         users.descriptionModel(gDbSpecField);
         users.bindApp();
+        
 
         caches = new CacheHelper();
         se = new session();
@@ -54,6 +59,7 @@ public class user {
             currentWeb = usersInfo.getString("currentWeb"); // 当前用户所属网站id
             userName = usersInfo.getString("name"); // 当前用户姓名
             userId = usersInfo.getString("id"); // 当前用户用户名
+            userType = usersInfo.getInt("userType");
         }
     }
 
@@ -121,8 +127,16 @@ public class user {
      * @return
      */
     public String userRegister(String info) {
-        info = CheckParam(info);
         JSONObject object = null;
+        JSONObject infos =JSONObject.toJSON(info);
+        JSONObject rMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 100);//设置默认查询权限
+    	JSONObject uMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 200);
+    	JSONObject dMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 300);
+    	infos.put("rMode", rMode.toJSONString()); //添加默认查看权限
+    	infos.put("uMode", uMode.toJSONString()); //添加默认修改权限
+    	infos.put("dMode", dMode.toJSONString()); //添加默认删除权限
+    	String infoa = JSONObject.toJSONString(infos);
+    	info = CheckParam(infoa);
         if (StringHelper.InvaildString(info)) {
             if (info.contains("errorcode")) {
                 return info;
@@ -370,13 +384,13 @@ public class user {
     private String Page(String wbid, int idx, int pageSize, String usersinfo) {
         long total = 0;
         JSONArray array = null;
-        if (true) { // 系统管理员
-            wbid = null;
-        }
-        if (true) { // 网站管理员
-            wbid = currentWeb;
+    	if (UserMode.root>userType && userType>= UserMode.admin) { //判断是否是网站管理员
+    		wbid = currentWeb;
             users.eq("deleteable", 0).eq("visable", 0);
-        }
+		}
+    	if (UserMode.root<=userType) { //判断是否是系统管理员
+    		wbid = null;
+		}
         if ((wbid != null) && (!wbid.equals(""))) {
             String[] value = model.getAllWeb(wbid); // 获取下级所有网站，包含本站
             if (value != null && !value.equals("")) {
@@ -418,6 +432,7 @@ public class user {
                 }
             }
         }
+        
         long code = users.deleteAll();
         code = Integer.parseInt(String.valueOf(code)) == value.length ? 0 : 99;
         if (code > 0) {
@@ -522,8 +537,15 @@ public class user {
         if (array != null && array.size() > 0) {
             object = getWbid(array);
             if (object != null && object.size() != 0) {
+            	String roleName = "";
+            	int userType = 0;
                 String wbid = object.get("wbid").toString(); // 获取站点id
                 String ugid = object.get("ugid").toString(); // 获取角色信息
+                JSONObject roleObj = getRoleName(ugid);
+                if (roleObj != null && roleObj.size() != 0) {
+                	roleName = roleObj.getString("name");
+                	userType = roleObj.getInt("userType");
+				}
                 arrays = getWbID(wbid); // 获取网站信息,同时返回当前网站包含的下级网站信息
                 object.remove("wbid");
                 object.remove("password");
@@ -531,7 +553,8 @@ public class user {
                 wbid = (StringHelper.InvaildString(wbid)) ? wbid.split(",")[0] : "";
                 object.put("currentWeb", wbid);
                 object.put("webinfo", (arrays != null && arrays.size() > 0) ? arrays : new JSONArray());
-                object.put("rolename", getRoleName(ugid)); // 获取角色信息
+                object.put("rolename", roleName); // 获取角色信息
+                object.put("userType", userType); // 获取用户身份
                 String sid = session.createSession(username, object, 86400)._getSID();
                 object.put("sid", sid);
                 // 添加登陆日志
@@ -548,13 +571,18 @@ public class user {
      * @param roleId
      * @return
      */
-    private String getRoleName(String roleId) {
-        String roleName = "";
+    @SuppressWarnings("unchecked")
+	private JSONObject getRoleName(String roleId) {
         JSONObject object = new roles().getRole(roleId);
         if (object != null && object.size() > 0) {
-            roleName = object.getString("name");
+            if (!object.containsKey("name")) {
+				object.put("name", "");
+			}
+            if (!object.containsKey("userType")) {
+				object.put("userType", 0);
+			}
         }
-        return roleName;
+        return object;
     }
 
     /**

@@ -4,9 +4,12 @@ import org.bson.types.ObjectId;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import JGrapeSystem.jGrapeFW_Message;
 import JGrapeSystem.rMsg;
 import Model.UserModel;
 import apps.appsProxy;
+import authority.plvDef.UserMode;
+import authority.plvDef.plvType;
 import interfaceModel.GrapeDBSpecField;
 import interfaceModel.GrapeTreeDBModel;
 import nlogger.nlogger;
@@ -20,13 +23,14 @@ public class roles {
 	private session se;
 	private JSONObject userInfo = null;
 	private String currentWeb = null;
+	 private Integer userType = null;
 
 	public roles() {
 	    model = new UserModel();
 	    
 		role = new GrapeTreeDBModel();
 		gDbSpecField = new GrapeDBSpecField();
-		gDbSpecField.importDescription(appsProxy.tableConfig("user"));
+		gDbSpecField.importDescription(appsProxy.tableConfig("roles"));
 		role.descriptionModel(gDbSpecField);
 		role.bindApp();
 
@@ -34,6 +38,8 @@ public class roles {
 		userInfo = se.getDatas();
 		if (userInfo != null && userInfo.size() != 0) {
 			currentWeb = userInfo.getString("currentWeb"); // 当前用户所属网站id
+			//currentWeb = "1";
+			userType =userInfo.getInt("userType");
 		}
 	}
 
@@ -56,7 +62,13 @@ public class roles {
 				object.put("wbid", currentWeb);
 			}
 			if (!findByName(object.getString("name"))) {
-				obj = role.data(object).insertOnce();
+				JSONObject rMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 500);//设置默认查询权限
+		    	JSONObject uMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 200);
+		    	JSONObject dMode = new JSONObject(plvType.chkType, plvType.powerVal).puts(plvType.chkVal, 300);
+		    	object.put("rMode", rMode.toJSONString()); //添加默认查看权限
+		    	object.put("uMode", uMode.toJSONString()); //添加默认修改权限
+		    	object.put("dMode", dMode.toJSONString()); //添加默认删除权限
+				obj = role.data(object).autoComplete().insertOnce();
 			}
 		} catch (Exception e) {
 			nlogger.logout(e);
@@ -74,7 +86,7 @@ public class roles {
 	 */
 	public String RoleUpdate(String id, String roleInfo) {
 		String result = rMsg.netMSG(100, "修改失败");
-		JSONObject object = JSONObject.toJSON("roleInfo");
+		JSONObject object = JSONObject.toJSON(roleInfo);
 		if (object == null || object.size() <= 0) {
 			return rMsg.netMSG(1, "非法参数");
 		}
@@ -82,7 +94,7 @@ public class roles {
 		object = role.eq("id", id).data(object).update();
 		return result = (object != null) ? rMsg.netMSG(0, "修改成功") : result;
 	}
-
+	
 	/**
 	 * 角色信息搜索
 	 * 
@@ -123,6 +135,7 @@ public class roles {
                     role.eq("_id", id);
                 }
             }
+            role.enableCheck();//开启权限检查
             long code = role.deleteAll();
             result = (code >= 0) ? rMsg.netMSG(0, "删除成功") : result;
         }
@@ -144,15 +157,25 @@ public class roles {
 		long total = 0;
 		JSONArray array = null;
 		JSONArray condArray = null;
+		System.out.println(role.page(1, 2));
+		role.enableCheck();//开启权限检查
+		//判断当前用户身份：系统管理员，网站管理员
+    	if (UserMode.root>userType && userType>= UserMode.admin) { //判断是否是网站管理员
+    		role.eq("wbid", currentWeb);
+		}
 		if (roleInfo != null && !roleInfo.equals("") && !roleInfo.equals("null")) {
+			
 			JSONObject object = JSONObject.toJSON(roleInfo);
 			condArray = model.buildCondAddWbid(object, currentWeb);
 			condArray = (condArray != null && condArray.size() > 0) ? condArray : JSONArray.toJSONArray(roleInfo);
 			if (condArray == null || condArray.size() <= 0) {
 				return rMsg.netPAGE(idx, pageSize, total, new JSONArray());
+			}else{
+				role.where(condArray);
 			}
+				
 		}
-		array = role.dirty().where(condArray).page(idx, pageSize);
+		array = role.dirty().page(idx, pageSize);
 		total = role.count();
 		return rMsg.netPAGE(idx, pageSize, total, array);
 	}
@@ -165,7 +188,7 @@ public class roles {
 	protected JSONObject getRole(String ugid) {
 		JSONObject object = null;
 		if (StringHelper.InvaildString(ugid)) {
-			object = role.eq("_id", ugid).field("name").find();
+			object = role.eq("_id", ugid).field("name,userType").find();
 		}
 		return object;
 	}
@@ -182,4 +205,5 @@ public class roles {
 		object = role.eq("name", name).eq("wbid", currentWeb).find();
 		return (object != null && object.size() > 0);
 	}
+	
 }
