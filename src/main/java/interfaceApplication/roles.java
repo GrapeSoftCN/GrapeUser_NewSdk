@@ -68,7 +68,7 @@ public class roles {
 		    	object.put("rMode", rMode.toJSONString()); //添加默认查看权限
 		    	object.put("uMode", uMode.toJSONString()); //添加默认修改权限
 		    	object.put("dMode", dMode.toJSONString()); //添加默认删除权限
-				obj = role.data(object).autoComplete().insertOnce();
+				obj = role.data(object).autoComplete().insertEx();
 			}
 		} catch (Exception e) {
 			nlogger.logout(e);
@@ -85,14 +85,15 @@ public class roles {
 	 * @return
 	 */
 	public String RoleUpdate(String id, String roleInfo) {
+		Object objects = null;
 		String result = rMsg.netMSG(100, "修改失败");
 		JSONObject object = JSONObject.toJSON(roleInfo);
 		if (object == null || object.size() <= 0) {
 			return rMsg.netMSG(1, "非法参数");
 		}
 		role.enableCheck();
-		object = role.eq("id", id).data(object).update();
-		return result = (object != null) ? rMsg.netMSG(0, "修改成功") : result;
+		objects = role.eq("id", id).data(object).updateEx();
+		return result = (objects != null) ? rMsg.netMSG(0, "修改成功") : result;
 	}
 	
 	/**

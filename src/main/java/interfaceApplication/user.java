@@ -141,7 +141,7 @@ public class user {
             if (info.contains("errorcode")) {
                 return info;
             }
-            String id = users.dataEx(info).autoComplete().insertOnce().toString();
+            String id = users.dataEx(info).autoComplete().insertEx().toString();
             object = find(id);
             AddLog(1, id, "userRegister", "");
         }
@@ -305,7 +305,7 @@ public class user {
      */
     public String userEdit(String id, String usersInfo) {
         usersInfo = CheckParam(usersInfo);
-        JSONObject temp = null;
+        Object objects = null;
         if (StringHelper.InvaildString(usersInfo)) {
             if (usersInfo.contains("errorcode")) {
                 return usersInfo;
@@ -315,13 +315,13 @@ public class user {
                 if (object.containsKey("password")) {
                     object.remove("password");
                 }
-                temp = users.eq("_id", id).data(object).update();
+                objects = users.eq("_id", id).data(object).updateEx();
             }
         }
-        if (temp != null) {
+        if (objects != null) {
             AddLog(3, id, "userEdit", "");
         }
-        return (temp != null) ? rMsg.netMSG(0, "修改成功") : rMsg.netMSG(100, "修改失败");
+        return (objects != null) ? rMsg.netMSG(0, "修改成功") : rMsg.netMSG(100, "修改失败");
     }
 
     /**
