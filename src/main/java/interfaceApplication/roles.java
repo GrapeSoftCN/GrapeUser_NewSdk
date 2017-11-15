@@ -85,7 +85,7 @@ public class roles {
 	 * @return
 	 */
 	public String RoleUpdate(String id, String roleInfo) {
-		Object objects = null;
+		boolean objects = false;
 		String result = rMsg.netMSG(100, "修改失败");
 		JSONObject object = JSONObject.toJSON(roleInfo);
 		if (object == null || object.size() <= 0) {
@@ -93,7 +93,7 @@ public class roles {
 		}
 		role.enableCheck();
 		objects = role.eq("id", id).data(object).updateEx();
-		return result = (objects != null) ? rMsg.netMSG(0, "修改成功") : result;
+		return result = objects ? rMsg.netMSG(0, "修改成功") : result;
 	}
 	
 	/**

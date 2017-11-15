@@ -305,7 +305,8 @@ public class user {
      */
     public String userEdit(String id, String usersInfo) {
         usersInfo = CheckParam(usersInfo);
-        Object objects = null;
+        boolean objects = false;
+        users.enableCheck();//开启权限检查
         if (StringHelper.InvaildString(usersInfo)) {
             if (usersInfo.contains("errorcode")) {
                 return usersInfo;
@@ -318,10 +319,10 @@ public class user {
                 objects = users.eq("_id", id).data(object).updateEx();
             }
         }
-        if (objects != null) {
+        if (objects = true) {
             AddLog(3, id, "userEdit", "");
         }
-        return (objects != null) ? rMsg.netMSG(0, "修改成功") : rMsg.netMSG(100, "修改失败");
+        return (objects = true) ? rMsg.netMSG(0, "修改成功") : rMsg.netMSG(100, "修改失败");
     }
 
     /**
@@ -432,7 +433,7 @@ public class user {
                 }
             }
         }
-        
+        users.enableCheck();//开启权限检查
         long code = users.deleteAll();
         code = Integer.parseInt(String.valueOf(code)) == value.length ? 0 : 99;
         if (code > 0) {
